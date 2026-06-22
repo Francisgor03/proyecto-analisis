@@ -3,24 +3,58 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 // ── Credenciales hardcodeadas ─────────────────────────────────────────────────
+// doctorFilter: nombre exacto tal como aparece en paciente.doctor de Supabase.
+//               null = cuenta admin, ve TODOS los pacientes.
 export const USERS = [
   {
     id: "USR-001",
-    username: "l.ramirez",
+    username: "c.monzon",
     password: "SISP@2026",
-    name: "Dr. Luis Ramírez Ochoa",
+    name: "Dr. Carlos Monzón",
     role: "Cardiólogo",
-    institution: "IMSS — Hospital General de Zona No. 1",
-    avatar: "LR",
+    institution: "Hospital General de Lima",
+    avatar: "CM",
+    doctorFilter: "Dr. Carlos Monzón",
   },
   {
     id: "USR-002",
+    username: "j.vega",
+    password: "SISP@2026",
+    name: "Dr. Julio Vega",
+    role: "Neumólogo",
+    institution: "Hospital General de Lima",
+    avatar: "JV",
+    doctorFilter: "Dr. Julio Vega",
+  },
+  {
+    id: "USR-003",
+    username: "e.silva",
+    password: "SISP@2026",
+    name: "Dra. Elena Silva",
+    role: "Medicina Interna",
+    institution: "Hospital General de Lima",
+    avatar: "ES",
+    doctorFilter: "Dra. Elena Silva",
+  },
+  {
+    id: "USR-004",
+    username: "m.torres",
+    password: "SISP@2026",
+    name: "Dr. Martín Torres",
+    role: "Cuidados Intensivos",
+    institution: "Hospital General de Lima",
+    avatar: "MT",
+    doctorFilter: "Dr. Martín Torres",
+  },
+  {
+    id: "USR-ADMIN",
     username: "admin",
     password: "admin123",
     name: "Administrador SISP",
     role: "Administrador del Sistema",
     institution: "SISP — Centro de Operaciones",
     avatar: "AD",
+    doctorFilter: null, // ve todos los pacientes
   },
 ];
 
@@ -31,11 +65,15 @@ export interface AuthUser {
   role: string;
   institution: string;
   avatar: string;
+  /** Nombre del doctor en paciente.doctor. null = admin (ve todos). */
+  doctorFilter: string | null;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
+  /** true si la cuenta no tiene restricción de doctor (admin) */
+  isAdmin: boolean;
   login: (username: string, password: string) => { ok: boolean; error?: string };
   logout: () => void;
 }
@@ -43,6 +81,7 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
+  isAdmin: false,
   login: () => ({ ok: false }),
   logout: () => {},
 });
@@ -83,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: found.role,
       institution: found.institution,
       avatar: found.avatar,
+      doctorFilter: found.doctorFilter,
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(authUser));
     setUser(authUser);
@@ -96,8 +136,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = "/login";
   }
 
+  const isAdmin = user?.doctorFilter === null;
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

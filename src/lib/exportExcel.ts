@@ -1,8 +1,9 @@
 // ─── SISP · Exportador Excel ─────────────────────────────────────────────────
-// Genera un archivo .xlsx con múltiples hojas a partir de los datos hardcodeados.
+// Genera un archivo .xlsx con múltiples hojas a partir de datos en vivo de Supabase.
 
 import * as XLSX from "xlsx";
-import { patients, alerts, reports, configData } from "@/lib/data";
+import type { PatientUI, AlertUI, ReportUI } from "@/lib/types";
+import { configData } from "@/lib/data";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function autoWidth(ws: XLSX.WorkSheet) {
@@ -18,7 +19,7 @@ function autoWidth(ws: XLSX.WorkSheet) {
 }
 
 // ── Hoja 1: Pacientes ─────────────────────────────────────────────────────────
-function sheetPacientes(): XLSX.WorkSheet {
+function sheetPacientes(patients: PatientUI[]): XLSX.WorkSheet {
   const rows = patients.map((p) => ({
     "ID Paciente": p.id,
     "Nombre": p.name,
@@ -28,17 +29,16 @@ function sheetPacientes(): XLSX.WorkSheet {
     "Teléfono": p.phone,
     "Domicilio": p.address,
     "Médico": p.doctor,
-    "Presión Arterial": p.bp,
     "FC (bpm)": p.hr,
     "Glucosa (mg/dL)": p.glucose,
     "SpO2 (%)": p.spo2,
-    "Peso": p.weight,
+    "Temperatura (°C)": p.temperatura,
+    "Presión Sistólica (mmHg)": p.presionSistolica,
+    "Score General (/100)": p.scoreGeneral ?? "—",
     "Nivel de Riesgo": p.risk,
     "Dispositivo": p.device,
     "Modelo Dispositivo": p.deviceModel,
     "Última Actualización": p.lastUpdate,
-    "Fecha Inscripción": p.enrolledDate,
-    "Notas Clínicas": p.notes,
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   autoWidth(ws);
@@ -46,7 +46,7 @@ function sheetPacientes(): XLSX.WorkSheet {
 }
 
 // ── Hoja 2: Alertas ───────────────────────────────────────────────────────────
-function sheetAlertas(): XLSX.WorkSheet {
+function sheetAlertas(alerts: AlertUI[]): XLSX.WorkSheet {
   const rows = alerts.map((a) => ({
     "ID Alerta": a.id,
     "ID Paciente": a.patientId,
@@ -68,7 +68,7 @@ function sheetAlertas(): XLSX.WorkSheet {
 }
 
 // ── Hoja 3: Reportes ──────────────────────────────────────────────────────────
-function sheetReportes(): XLSX.WorkSheet {
+function sheetReportes(reports: ReportUI[]): XLSX.WorkSheet {
   const rows = reports.map((r) => ({
     "ID Reporte": r.id,
     "Título": r.title,
@@ -81,6 +81,8 @@ function sheetReportes(): XLSX.WorkSheet {
     "Riesgo Promedio": r.avgRisk,
     "Estado": r.status,
     "Tamaño": r.size,
+    "Descripción": r.description,
+    "Doctor": r.doctor,
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   autoWidth(ws);
@@ -88,14 +90,19 @@ function sheetReportes(): XLSX.WorkSheet {
 }
 
 // ── Hoja 4: Resumen KPI ───────────────────────────────────────────────────────
-function sheetResumen(): XLSX.WorkSheet {
+function sheetResumen(
+  patients: PatientUI[],
+  alerts: AlertUI[]
+): XLSX.WorkSheet {
   const totalPacientes = patients.length;
   const conectados = patients.filter((p) => p.device === "Conectado").length;
   const riesgoAlto = patients.filter((p) => p.risk === "Alto").length;
   const riesgoModerado = patients.filter((p) => p.risk === "Moderado").length;
   const riesgoBajo = patients.filter((p) => p.risk === "Bajo").length;
   const alertasActivas = alerts.filter((a) => a.status === "Activa").length;
-  const alertasCriticas = alerts.filter((a) => a.severity === "critical" && a.status === "Activa").length;
+  const alertasCriticas = alerts.filter(
+    (a) => a.severity === "critical" && a.status === "Activa"
+  ).length;
   const alertasAtendidas = alerts.filter((a) => a.status === "Atendida").length;
 
   const rows = [
@@ -125,13 +132,23 @@ function sheetResumen(): XLSX.WorkSheet {
 }
 
 // ── Exportador principal ──────────────────────────────────────────────────────
-export function exportarExcel() {
+/**
+ * Genera y descarga el Excel con datos en vivo de Supabase.
+ * @param patients - Lista de pacientes obtenida con getPacientes()
+ * @param alerts   - Lista de alertas obtenida con getAlertasCriticas()
+ * @param reports  - Lista de reportes obtenida con getReportes()
+ */
+export function exportarExcel(
+  patients: PatientUI[],
+  alerts: AlertUI[],
+  reports: ReportUI[]
+) {
   const wb = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(wb, sheetResumen(), "Resumen");
-  XLSX.utils.book_append_sheet(wb, sheetPacientes(), "Pacientes");
-  XLSX.utils.book_append_sheet(wb, sheetAlertas(), "Alertas");
-  XLSX.utils.book_append_sheet(wb, sheetReportes(), "Reportes");
+  XLSX.utils.book_append_sheet(wb, sheetResumen(patients, alerts), "Resumen");
+  XLSX.utils.book_append_sheet(wb, sheetPacientes(patients), "Pacientes");
+  XLSX.utils.book_append_sheet(wb, sheetAlertas(alerts), "Alertas");
+  XLSX.utils.book_append_sheet(wb, sheetReportes(reports), "Reportes");
 
   const fecha = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `SISP_Reporte_${fecha}.xlsx`);

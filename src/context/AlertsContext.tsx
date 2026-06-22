@@ -1,12 +1,16 @@
 "use client";
 
-import React, { createContext, useState, useEffect } from "react";
-import { Alert, patients } from "@/lib/data";
+import React, { createContext, useState, useEffect, useRef } from "react";
+import { Alert } from "@/lib/data";
+import { getAlertasCriticas, getPacientes } from "@/lib/queries";
+import type { PatientUI } from "@/lib/types";
+import { useAuth } from "@/context/AuthContext";
 
 interface AlertsContextType {
   alerts: Alert[];
   criticalCount: number;
   activeCount: number;
+  isLoading: boolean;
   attendAlert: (id: string) => void;
   dismissAlert: (id: string) => void;
 }
@@ -15,11 +19,12 @@ export const AlertsContext = createContext<AlertsContextType>({
   alerts: [],
   criticalCount: 0,
   activeCount: 0,
+  isLoading: true,
   attendAlert: () => {},
   dismissAlert: () => {},
 });
 
-// Alarm / scenario pools for randomized generation
+// Pool de escenarios clínicos para la simulación en tiempo real
 const clinicalAlertPool = [
   {
     alertType: "Pico de Presión Arterial",
@@ -56,59 +61,81 @@ const clinicalAlertPool = [
     reading: "190/115 mmHg",
     risk: "Riesgo de Accidente Cerebrovascular",
     severity: "critical" as const,
-  }
+  },
 ];
 
 export function AlertsProvider({ children }: { children: React.ReactNode }) {
-  const initialAlerts: Alert[] = [
-    {
-      id: "ALT-2026-001",
-      patientId: "PAC-00312",
-      patientName: "Carlos Mendoza",
-      patientAge: 58,
-      alertType: "Pico de Presión Arterial",
-      reading: "180/120 mmHg",
-      risk: "Riesgo de Infarto Agudo al Miocardio",
-      severity: "critical",
-      status: "Activa",
-      time: "Hace 4 min",
-      timestamp: "2026-06-21 19:41",
-      location: "Zona Norte · CDMX",
-    },
-    {
-      id: "ALT-2026-002",
-      patientId: "PAC-00589",
-      patientName: "María González",
-      patientAge: 65,
-      alertType: "Hipoglucemia Severa",
-      reading: "48 mg/dL",
-      risk: "Riesgo de Coma Diabético",
-      severity: "critical",
-      status: "Activa",
-      time: "Hace 11 min",
-      timestamp: "2026-06-21 19:34",
-      location: "Zona Sur · CDMX",
-    },
-  ];
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  // Pool de pacientes de Supabase para la simulación
+  const patientPoolRef = useRef<PatientUI[]>([]);
+  const { user } = useAuth();
+  const doctorFilter = user?.doctorFilter;
 
-  const [alerts, setAlerts] = useState<Alert[]>(initialAlerts);
+  // ── Carga inicial desde Supabase ──────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
 
-  // 3s Initial delay, then an 8s interval to generate critical alerts
+    async function loadInitialData() {
+      try {
+        // Cargar alertas y pacientes en paralelo, filtrados por doctor
+        const [alertasDB, pacientesDB] = await Promise.all([
+          getAlertasCriticas(doctorFilter),
+          getPacientes(doctorFilter),
+        ]);
+
+        if (!mounted) return;
+
+        // Convertir AlertUI → Alert (formato compatible con todos los componentes)
+        const mapped: Alert[] = alertasDB.map((a) => ({
+          id: a.id,
+          patientId: a.patientId,
+          patientName: a.patientName,
+          patientAge: a.patientAge,
+          alertType: a.alertType,
+          reading: a.reading,
+          risk: a.risk,
+          severity: a.severity,
+          status: a.status,
+          time: a.time,
+          timestamp: a.timestamp,
+          location: a.location,
+          attendedBy: a.attendedBy,
+          doctorName: a.doctorName,
+        }));
+
+        setAlerts(mapped);
+        patientPoolRef.current = pacientesDB;
+      } catch (err) {
+        console.error("[AlertsProvider] Error cargando datos:", err);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    loadInitialData();
+    return () => { mounted = false; };
+  }, [doctorFilter]);
+
+  // ── Simulación: genera nuevas alertas cada 1.30 min (después de 3 s inicial) ──
   useEffect(() => {
     const delayTimer = setTimeout(() => {
       const interval = setInterval(() => {
         setAlerts((prevAlerts) => {
-          // Select a random patient from the database
-          const randomPatient = patients[Math.floor(Math.random() * patients.length)];
-          const scenario = clinicalAlertPool[Math.floor(Math.random() * clinicalAlertPool.length)];
-          
-          const newAlertId = `ALT-2026-${Math.floor(100 + Math.random() * 900)}`;
-          
+          const pool = patientPoolRef.current;
+          if (pool.length === 0) return prevAlerts;
+
+          const randomPatient = pool[Math.floor(Math.random() * pool.length)];
+          const scenario =
+            clinicalAlertPool[
+              Math.floor(Math.random() * clinicalAlertPool.length)
+            ];
+
+          const newAlertId = `ALT-SIM-${Date.now()}`;
           const now = new Date();
-          const pad = (n: number) => n.toString().padStart(2, '0');
-          const timeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-          const timestampString = `2026-06-21 ${timeString}`;
-          
+          const pad = (n: number) => n.toString().padStart(2, "0");
+          const timestampString = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
           const newAlert: Alert = {
             id: newAlertId,
             patientId: randomPatient.id,
@@ -121,13 +148,13 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
             status: "Activa",
             time: "Justo ahora",
             timestamp: timestampString,
-            location: randomPatient.address.includes("·") ? randomPatient.address.split(",")[1]?.trim() || "Zona Centro · CDMX" : "Zona Centro · CDMX",
+            location: "Lima, Perú",
           };
 
-          // Limit pool size to keep it clean (e.g. max 50 alerts)
+          // Máximo 50 alertas en memoria
           return [newAlert, ...prevAlerts.slice(0, 49)];
         });
-      }, 20000);
+      }, 90000);
 
       return () => clearInterval(interval);
     }, 3000);
@@ -135,7 +162,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(delayTimer);
   }, []);
 
-  // Periodically update the relative times (e.g., "Justo ahora" -> "Hace 1 min")
+  // ── Actualización periódica de tiempos relativos ──────────────────────────
   useEffect(() => {
     const updateTimeInterval = setInterval(() => {
       setAlerts((prevAlerts) =>
@@ -158,6 +185,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(updateTimeInterval);
   }, []);
 
+  // ── Acciones ──────────────────────────────────────────────────────────────
   const criticalCount = alerts.filter(
     (a) => a.severity === "critical" && a.status === "Activa"
   ).length;
@@ -168,11 +196,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     setAlerts((prev) =>
       prev.map((a) =>
         a.id === id
-          ? {
-              ...a,
-              status: "Atendida" as const,
-              attendedBy: "Dr. Ramírez",
-            }
+          ? { ...a, status: "Atendida" as const, attendedBy: "Dr. Ramírez" }
           : a
       )
     );
@@ -182,11 +206,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
     setAlerts((prev) =>
       prev.map((a) =>
         a.id === id
-          ? {
-              ...a,
-              status: "Descartada" as const,
-              attendedBy: "Dr. Ramírez",
-            }
+          ? { ...a, status: "Descartada" as const, attendedBy: "Dr. Ramírez" }
           : a
       )
     );
@@ -198,6 +218,7 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
         alerts,
         criticalCount,
         activeCount,
+        isLoading,
         attendAlert,
         dismissAlert,
       }}

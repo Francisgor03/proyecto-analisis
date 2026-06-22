@@ -6,6 +6,7 @@ import {
   Save, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { configData } from "@/lib/data";
+import { useAuth } from "@/context/AuthContext";
 
 function SectionCard({ title, icon: Icon, children }: { title: string; icon: typeof User; children: React.ReactNode }) {
   return (
@@ -82,6 +83,7 @@ function ThresholdRow({ label, value, unit, onChange, id, warnHigh }: {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function ConfiguracionPage() {
+  const { user } = useAuth();
   const [notif, setNotif] = useState(configData.notifications);
   const [thresh, setThresh] = useState(configData.thresholds);
   const [saved, setSaved] = useState(false);
@@ -97,7 +99,43 @@ export default function ConfiguracionPage() {
     setTimeout(() => setSaved(false), 3000);
   }
 
-  const { doctor, iomt } = configData;
+  const { iomt } = configData;
+
+  // Dynamic doctor info from user context
+  const doctorName = user?.name || "Administrador SISP";
+  const doctorSpecialty = user?.role || "Administrador del Sistema";
+  const doctorInstitution = user?.institution || "SISP — Centro de Operaciones";
+  
+  let doctorEmail = "admin@sisp.gob.pe";
+  let doctorPhone = "555-800-0000";
+  let doctorLicense = "CCEC-0000000";
+
+  if (user?.username === "c.monzon") {
+    doctorEmail = "c.monzon@sisp.gob.pe";
+    doctorPhone = "555-800-0001 ext. 101";
+    doctorLicense = "CCEC-2301847";
+  } else if (user?.username === "j.vega") {
+    doctorEmail = "j.vega@sisp.gob.pe";
+    doctorPhone = "555-800-0002 ext. 102";
+    doctorLicense = "CCEC-2458921";
+  } else if (user?.username === "e.silva") {
+    doctorEmail = "e.silva@sisp.gob.pe";
+    doctorPhone = "555-800-0003 ext. 103";
+    doctorLicense = "CCEC-2598371";
+  } else if (user?.username === "m.torres") {
+    doctorEmail = "m.torres@sisp.gob.pe";
+    doctorPhone = "555-800-0004 ext. 104";
+    doctorLicense = "CCEC-2674910";
+  }
+
+  const doctor = {
+    name: doctorName,
+    specialty: doctorSpecialty,
+    institution: doctorInstitution,
+    license: doctorLicense,
+    email: doctorEmail,
+    phone: doctorPhone,
+  };
 
   return (
     <div className="p-6 space-y-6">
