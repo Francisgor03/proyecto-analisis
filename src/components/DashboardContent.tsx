@@ -10,6 +10,7 @@ import {
 import KPICard from "@/components/KPICard";
 import CriticalAlertsPanel from "@/components/CriticalAlertsPanel";
 import PatientsTable from "@/components/PatientsTable";
+import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
 
 // Mini sparkline bars (purely decorative, simulating vitals trend)
 function SparkBar({
@@ -88,6 +89,8 @@ function RiskDonut() {
 }
 
 export default function DashboardPage() {
+  const { criticalCount } = useSimulatedAlerts();
+
   return (
     <div className="flex flex-col gap-6 p-6 max-w-full">
       {/* ── Section: KPI Cards ── */}
@@ -98,9 +101,9 @@ export default function DashboardPage() {
       >
         <KPICard
           id="kpi-active-patients"
-          title="Pacientes Activos"
+          title="Pacientes Monitoreados"
           value="1,245"
-          subtitle="Monitoreados en tiempo real"
+          subtitle="Monitoreo activo IoMT"
           icon={Users}
           trend={{ value: "+8 esta semana", up: true }}
           accentColor="#1565c0"
@@ -109,11 +112,11 @@ export default function DashboardPage() {
         />
         <KPICard
           id="kpi-critical-alerts"
-          title="Alertas Críticas Hoy"
-          value={3}
+          title="Alertas Críticas"
+          value={criticalCount}
           subtitle="Requieren atención inmediata"
           icon={AlertTriangle}
-          trend={{ value: "+1 vs ayer", up: false }}
+          trend={{ value: criticalCount > 2 ? `+${criticalCount - 2} en vivo` : "Estable", up: criticalCount <= 2 }}
           accentColor="#c62828"
           accentBg="#ffebee"
           delay={80}
@@ -131,7 +134,7 @@ export default function DashboardPage() {
         />
         <KPICard
           id="kpi-active-devices"
-          title="Dispositivos IoMT"
+          title="Dispositivos IoMT Activos"
           value="1,198"
           subtitle="96.2% conectividad activa"
           icon={Activity}
@@ -142,112 +145,113 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* ── Section: Middle row (Alerts + Stats) ── */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 340px" }}>
-        {/* Critical Alerts Panel */}
-        <CriticalAlertsPanel />
-
-        {/* Right column: Risk distribution + Vitals trend */}
-        <div className="flex flex-col gap-4">
-          {/* Risk Distribution */}
-          <div
-            className="rounded-2xl p-5 animate-fade-in-up"
-            style={{
-              background: "var(--card-bg)",
-              border: "1px solid var(--border-color)",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              animationDelay: "200ms",
-            }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={16} style={{ color: "var(--medical-blue)" }} />
-              <h3
-                className="font-bold text-sm"
-                style={{ color: "var(--foreground)" }}
-              >
-                Distribución de Riesgo
-              </h3>
-            </div>
-            <RiskDonut />
-            <p
-              className="text-xs mt-3 pt-3 border-t"
-              style={{ color: "var(--text-muted)", borderColor: "var(--border-color)" }}
-            >
-              Basado en modelo ML — Actualizado hoy 19:28 h
-            </p>
-          </div>
-
-          {/* Vitals trend sparklines */}
-          <div
-            className="rounded-2xl p-5 animate-fade-in-up flex-1"
-            style={{
-              background: "var(--card-bg)",
-              border: "1px solid var(--border-color)",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-              animationDelay: "280ms",
-            }}
-          >
+      {/* ── Section: Middle row (Risk distribution + Vitals trend) ── */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        {/* Risk Distribution */}
+        <div
+          className="rounded-2xl p-5 animate-fade-in-up"
+          style={{
+            background: "var(--card-bg)",
+            border: "1px solid var(--border-color)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            animationDelay: "100ms",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={16} style={{ color: "var(--medical-blue)" }} />
             <h3
-              className="font-bold text-sm mb-4"
+              className="font-bold text-sm"
               style={{ color: "var(--foreground)" }}
             >
-              Tendencia de Signos Vitales
-              <span
-                className="ml-2 text-xs font-normal"
-                style={{ color: "var(--text-muted)" }}
-              >
-                últimas 6 h · promedio
-              </span>
+              Distribución de Riesgo
             </h3>
-            <div className="space-y-4">
-              {[
-                {
-                  label: "Presión Arterial",
-                  unit: "mmHg",
-                  values: [132, 135, 138, 142, 145, 140],
-                  color: "#1565c0",
-                  current: "140",
-                },
-                {
-                  label: "Frecuencia Cardíaca",
-                  unit: "bpm",
-                  values: [74, 76, 80, 84, 88, 82],
-                  color: "#c62828",
-                  current: "82",
-                },
-                {
-                  label: "Glucosa Promedio",
-                  unit: "mg/dL",
-                  values: [108, 112, 118, 124, 130, 122],
-                  color: "#e65100",
-                  current: "122",
-                },
-              ].map(({ label, unit, values, color, current }) => (
-                <div key={label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {label}
-                    </span>
-                    <span
-                      className="text-xs font-bold font-mono"
-                      style={{ color }}
-                    >
-                      {current} {unit}
-                    </span>
-                  </div>
-                  <SparkBar values={values} color={color} />
+          </div>
+          <RiskDonut />
+          <p
+            className="text-xs mt-3 pt-3 border-t"
+            style={{ color: "var(--text-muted)", borderColor: "var(--border-color)" }}
+          >
+            Basado en modelo ML — Actualizado en tiempo real
+          </p>
+        </div>
+
+        {/* Vitals trend sparklines */}
+        <div
+          className="rounded-2xl p-5 animate-fade-in-up lg:col-span-2"
+          style={{
+            background: "var(--card-bg)",
+            border: "1px solid var(--border-color)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            animationDelay: "150ms",
+          }}
+        >
+          <h3
+            className="font-bold text-sm mb-4"
+            style={{ color: "var(--foreground)" }}
+          >
+            Tendencia de Signos Vitales
+            <span
+              className="ml-2 text-xs font-normal"
+              style={{ color: "var(--text-muted)" }}
+            >
+              últimas 6 h · promedio general
+            </span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              {
+                label: "Presión Arterial",
+                unit: "mmHg",
+                values: [132, 135, 138, 142, 145, 140],
+                color: "#1565c0",
+                current: "140",
+              },
+              {
+                label: "Frecuencia Cardíaca",
+                unit: "bpm",
+                values: [74, 76, 80, 84, 88, 82],
+                color: "#c62828",
+                current: "82",
+              },
+              {
+                label: "Glucosa Promedio",
+                unit: "mg/dL",
+                values: [108, 112, 118, 124, 130, 122],
+                color: "#e65100",
+                current: "122",
+              },
+            ].map(({ label, unit, values, color, current }) => (
+              <div key={label} className="flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-1">
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className="text-xs font-bold font-mono"
+                    style={{ color }}
+                  >
+                    {current} {unit}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <SparkBar values={values} color={color} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
+      {/* ── Section: Critical Alerts Panel (full width) ── */}
+      <div>
+        <CriticalAlertsPanel />
+      </div>
+
       {/* ── Section: Patients Table ── */}
-      <PatientsTable />
+      <div>
+        <PatientsTable />
+      </div>
     </div>
   );
 }

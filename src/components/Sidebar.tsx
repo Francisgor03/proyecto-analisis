@@ -15,7 +15,7 @@ import {
   LogOut,
   MoreHorizontal,
 } from "lucide-react";
-import { alerts } from "@/lib/data";
+import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
 
 const navItems = [
   {
@@ -50,9 +50,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { activeCount } = useSimulatedAlerts();
 
   // Calculate dynamic alerts count
-  const activeAlertsCount = alerts.filter((alert) => alert.status === "Activa").length;
+  const activeAlertsCount = activeCount;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

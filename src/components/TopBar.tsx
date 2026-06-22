@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Bell, RefreshCw, AlertTriangle, X, ExternalLink } from "lucide-react";
-import { alerts } from "@/lib/data";
+import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
 
 export default function TopBar() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { alerts } = useSimulatedAlerts();
 
   // Filter only active alerts
   const activeAlerts = alerts.filter((alert) => alert.status === "Activa");

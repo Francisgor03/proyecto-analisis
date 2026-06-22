@@ -9,76 +9,30 @@ import {
   Siren,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
+import { Alert } from "@/lib/data";
+import Link from "next/link";
 
-interface CriticalAlert {
-  id: string;
-  patientName: string;
-  patientId: string;
-  age: number;
-  alertType: string;
-  reading: string;
-  risk: string;
-  riskLevel: "critical" | "high";
-  time: string;
-  location: string;
+interface AlertCardProps {
+  alert: Alert;
+  index: number;
+  onAttend: (id: string) => void;
+  onDismiss: (id: string) => void;
 }
 
-const criticalAlerts: CriticalAlert[] = [
-  {
-    id: "ALT-2024-001",
-    patientName: "Carlos Mendoza",
-    patientId: "PAC-00312",
-    age: 58,
-    alertType: "Pico de Presión Arterial",
-    reading: "180/120 mmHg",
-    risk: "Riesgo de Infarto Agudo al Miocardio",
-    riskLevel: "critical",
-    time: "Hace 4 min",
-    location: "Zona Norte · CDMX",
-  },
-  {
-    id: "ALT-2024-002",
-    patientName: "María González",
-    patientId: "PAC-00589",
-    age: 65,
-    alertType: "Hipoglucemia Severa",
-    reading: "48 mg/dL",
-    risk: "Riesgo de Coma Diabético",
-    riskLevel: "critical",
-    time: "Hace 11 min",
-    location: "Zona Sur · CDMX",
-  },
-  {
-    id: "ALT-2024-003",
-    patientName: "Roberto Sánchez",
-    patientId: "PAC-00741",
-    age: 71,
-    alertType: "Arritmia Detectada",
-    reading: "FC: 142 bpm (irregular)",
-    risk: "Fibrilación Auricular",
-    riskLevel: "high",
-    time: "Hace 23 min",
-    location: "Zona Este · CDMX",
-  },
-];
-
-function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-
-  const isCritical = alert.riskLevel === "critical";
+function AlertCard({ alert, index, onAttend, onDismiss }: AlertCardProps) {
+  const isCritical = alert.severity === "critical";
 
   return (
     <div
       id={`alert-card-${alert.id}`}
-      className="rounded-xl p-4 animate-fade-in-up relative overflow-hidden"
+      className="rounded-xl p-4 animate-fade-in-down relative overflow-hidden transition-all duration-300"
       style={{
         background: isCritical
           ? "linear-gradient(135deg, #fff5f5 0%, #fff0f0 100%)"
           : "linear-gradient(135deg, #fff8f0 0%, #fff4e8 100%)",
         border: `1px solid ${isCritical ? "#ffcdd2" : "#ffe0b2"}`,
-        animationDelay: `${index * 80}ms`,
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
       }}
     >
       {/* Left accent stripe */}
@@ -102,7 +56,7 @@ function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
               background: isCritical ? "#c62828" : "#e65100",
             }}
           >
-            <Siren size={17} className="text-white" />
+            <Siren size={17} className="text-white animate-bounce" style={{ animationDuration: "2s" }} />
           </div>
           {/* Pulse ring */}
           <span
@@ -127,13 +81,13 @@ function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
                 {alert.patientName}
               </p>
               <p className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-                {alert.patientId} · {alert.age} años · {alert.location}
+                {alert.patientId} · {alert.patientAge} años · {alert.location}
               </p>
             </div>
             <button
               id={`btn-dismiss-${alert.id}`}
-              onClick={() => setDismissed(true)}
-              className="rounded-full p-1 transition-colors"
+              onClick={() => onDismiss(alert.id)}
+              className="rounded-full p-1 hover:bg-slate-100 transition-colors"
               style={{ color: "var(--text-muted)" }}
               title="Descartar alerta"
             >
@@ -188,7 +142,7 @@ function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
             <div className="ml-auto flex gap-2">
               <button
                 id={`btn-call-${alert.id}`}
-                className="flex items-center gap-1 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all duration-150"
+                className="flex items-center gap-1 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all duration-150 hover:bg-[#d0e5f7]"
                 style={{
                   background: "#e3f0fb",
                   color: "var(--medical-blue)",
@@ -199,7 +153,8 @@ function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
               </button>
               <button
                 id={`btn-attend-${alert.id}`}
-                className="flex items-center gap-1 text-xs font-bold rounded-lg px-3 py-1.5 text-white transition-all duration-150"
+                onClick={() => onAttend(alert.id)}
+                className="flex items-center gap-1 text-xs font-bold rounded-lg px-3 py-1.5 text-white transition-all duration-150 hover:opacity-90 shadow-sm"
                 style={{
                   background: isCritical
                     ? "linear-gradient(135deg, #c62828, #ef5350)"
@@ -219,62 +174,84 @@ function AlertCard({ alert, index }: { alert: CriticalAlert; index: number }) {
 }
 
 export default function CriticalAlertsPanel() {
+  const { alerts, attendAlert, dismissAlert } = useSimulatedAlerts();
+
+  // Filter only active critical alerts to show in the side panel
+  const activeAlerts = alerts.filter((a) => a.status === "Activa");
+
   return (
     <section
       id="critical-alerts-panel"
-      className="rounded-2xl overflow-hidden"
+      className="rounded-2xl overflow-hidden flex flex-col h-full"
       style={{
         background: "var(--card-bg)",
         border: "1px solid #ffcdd2",
         boxShadow:
-          "0 4px 16px rgba(198,40,40,0.1), 0 1px 4px rgba(198,40,40,0.05)",
+          "0 4px 16px rgba(198,40,40,0.06), 0 1px 4px rgba(198,40,40,0.03)",
       }}
     >
       {/* Panel header */}
       <div
-        className="px-5 py-4 flex items-center justify-between"
+        className="px-5 py-4 flex items-center justify-between flex-shrink-0"
         style={{
           background: "linear-gradient(135deg, #c62828 0%, #b71c1c 100%)",
         }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <AlertTriangle size={18} className="text-white" />
           <span className="text-white font-bold text-sm">
-            Alertas Críticas — Prioridad Alta
+            Monitoreo Clínico
           </span>
           <span
             className="rounded-full px-2 py-0.5 text-xs font-extrabold"
             style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
           >
-            3
+            {activeAlerts.length}
           </span>
-          {/* Live indicator */}
+          
+          {/* Pulse Monitoring Badge requested by user */}
           <span
-            className="ml-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold"
-            style={{ background: "rgba(255,255,255,0.15)", color: "white" }}
+            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-extrabold bg-[#e8f5e9]/90 text-[#2e7d32] border border-[#2e7d32]/20"
           >
             <span
-              className="inline-block rounded-full live-dot"
-              style={{ width: 6, height: 6, background: "#ffca28" }}
+              className="inline-block rounded-full w-1.5 h-1.5 bg-[#4caf50] animate-pulse"
             />
-            EN VIVO
+            MONITOREANDO
           </span>
         </div>
-        <button
+
+        <Link
           id="btn-view-all-alerts"
-          className="flex items-center gap-1 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all"
-          style={{ background: "rgba(255,255,255,0.2)", color: "white" }}
+          href="/alertas"
+          className="flex items-center gap-1 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all bg-white/20 text-white hover:bg-white/30"
         >
           Ver todas
           <ChevronRight size={12} />
-        </button>
+        </Link>
       </div>
 
-      {/* Alert cards */}
-      <div className="p-4 space-y-3">
-        {criticalAlerts.map((alert, i) => (
-          <AlertCard key={alert.id} alert={alert} index={i} />
-        ))}
+      {/* Alert cards container */}
+      <div className="p-4 space-y-3 overflow-y-auto max-h-[500px] flex-1">
+        {activeAlerts.length === 0 ? (
+          <div className="text-center py-10 px-4">
+            <p className="text-sm font-semibold text-slate-400">
+              No hay alertas críticas activas en este momento.
+            </p>
+            <p className="text-xs text-slate-300 mt-1">
+              El sistema continúa monitoreando señales IoMT...
+            </p>
+          </div>
+        ) : (
+          activeAlerts.map((alert, i) => (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              index={i}
+              onAttend={attendAlert}
+              onDismiss={dismissAlert}
+            />
+          ))
+        )}
       </div>
     </section>
   );

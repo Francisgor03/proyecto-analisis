@@ -5,7 +5,8 @@ import {
   AlertTriangle, CheckCircle2, XCircle, Clock,
   Phone, Heart, ChevronRight, Siren, Info,
 } from "lucide-react";
-import { alerts, type Alert, type AlertSeverity, type AlertStatus } from "@/lib/data";
+import { type Alert, type AlertSeverity, type AlertStatus } from "@/lib/data";
+import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
 
 type FilterStatus = "Todos" | AlertStatus;
 type FilterSeverity = "Todos" | AlertSeverity;
@@ -112,27 +113,25 @@ function AlertCard({ alert, onAttend }: { alert: Alert; onAttend: (id: string) =
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function AlertasPage() {
-  const [alertsState, setAlertsState] = useState(alerts);
+  const { alerts, attendAlert } = useSimulatedAlerts();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("Todos");
   const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>("Todos");
 
   function handleAttend(id: string) {
-    setAlertsState(prev =>
-      prev.map(a => a.id === id ? { ...a, status: "Atendida" as AlertStatus, attendedBy: "Dr. Ramírez" } : a)
-    );
+    attendAlert(id);
   }
 
-  const filtered = alertsState.filter(a => {
+  const filtered = alerts.filter(a => {
     const matchStatus = filterStatus === "Todos" || a.status === filterStatus;
     const matchSev = filterSeverity === "Todos" || a.severity === filterSeverity;
     return matchStatus && matchSev;
   });
 
   const counts = {
-    active: alertsState.filter(a => a.status === "Activa").length,
-    critical: alertsState.filter(a => a.severity === "critical" && a.status === "Activa").length,
-    attended: alertsState.filter(a => a.status === "Atendida").length,
-    dismissed: alertsState.filter(a => a.status === "Descartada").length,
+    active: alerts.filter(a => a.status === "Activa").length,
+    critical: alerts.filter(a => a.severity === "critical" && a.status === "Activa").length,
+    attended: alerts.filter(a => a.status === "Atendida").length,
+    dismissed: alerts.filter(a => a.status === "Descartada").length,
   };
 
   return (
