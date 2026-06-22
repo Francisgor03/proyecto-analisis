@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Bell, RefreshCw, AlertTriangle, X, ExternalLink } from "lucide-react";
+import { Bell, RefreshCw, AlertTriangle, X, ExternalLink, LogOut } from "lucide-react";
 import { useSimulatedAlerts } from "@/hooks/useSimulatedAlerts";
+import { useAuth } from "@/context/AuthContext";
 
 export default function TopBar() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { alerts } = useSimulatedAlerts();
+  const { user, logout } = useAuth();
 
   // Filter only active alerts
   const activeAlerts = alerts.filter((alert) => alert.status === "Activa");
@@ -191,6 +193,52 @@ export default function TopBar() {
             </div>
           )}
         </div>
+
+        {/* Divider */}
+        <div className="w-px h-6 mx-1" style={{ background: "var(--border-color)" }} />
+
+        {/* User avatar + logout */}
+        {user && (
+          <div className="flex items-center gap-2">
+            {/* Avatar chip */}
+            <div className="flex items-center gap-2.5 rounded-xl px-3 py-1.5"
+              style={{ background: "#f1f5f9" }}>
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold text-white flex-shrink-0"
+                style={{ background: "linear-gradient(135deg,#1565c0,#1e88e5)" }}
+              >
+                {user.avatar}
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-xs font-bold leading-none" style={{ color: "var(--foreground)" }}>
+                  {user.name}
+                </p>
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {user.role}
+                </p>
+              </div>
+            </div>
+
+            {/* Logout button */}
+            <button
+              id="btn-logout"
+              onClick={logout}
+              title="Cerrar sesión"
+              className="flex items-center justify-center rounded-xl transition-all duration-200 cursor-pointer"
+              style={{ width: 38, height: 38, background: "#f1f5f9", color: "var(--text-muted)" }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "#ffebee";
+                (e.currentTarget as HTMLButtonElement).style.color = "#c62828";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "#f1f5f9";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--text-muted)";
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
